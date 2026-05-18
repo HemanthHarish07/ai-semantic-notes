@@ -1,6 +1,6 @@
 # NeuroNote AI — Semantic Knowledge Base
 
-NeuroNote AI is a AI-powered semantic knowledge base and note retrieval platform and note-taking application. The platform leverages modern generative AI for summarization, computes dense vector embeddings, and delivers lightning-fast semantic search queries.
+NeuroNote AI is an AI-powered semantic knowledge base and note retrieval platform. The platform leverages modern generative AI for summarization, computes dense vector embeddings, and delivers lightning-fast semantic search queries.
 
 ---
 
