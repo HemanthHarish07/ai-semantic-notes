@@ -1,23 +1,20 @@
-# 
-FROM python:3.8-slim-buster
+FROM python:3.10.11-slim
 
-
-RUN apt-get update \
-    && apt-get -y install libpq-dev gcc \
-    && pip3 install psycopg2
-# 
 WORKDIR /code
 
-# 
-COPY ./requirements.txt /code/requirements.txt
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# 
-RUN pip3 install --no-cache-dir --upgrade -r /code/requirements.txt
+COPY requirements.txt .
 
-# 
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY ./app /code/app
 
-ENV PYTHONPATH "/code/app"
+ENV PYTHONPATH=/code
 
-# 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
