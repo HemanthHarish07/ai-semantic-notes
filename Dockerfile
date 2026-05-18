@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
 
 COPY requirements.txt .
 
+ENV TRANSFORMERS_CACHE=/tmp/huggingface
+ENV HF_HOME=/tmp/huggingface
+
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 

@@ -11,21 +11,32 @@ from .config import EMBEDDING_PROVIDER, GEMINI_API_KEY
 # Lazy load HF model (sentence-transformers) globally.
 _hf_model = None
 
-
 def _load_hf_model():
     global _hf_model
+
     if _hf_model is None:
         try:
-            print("[_load_hf_model] loading SentenceTransformer model")
+            print("[HF] Loading SentenceTransformer model")
+
+            import os
+            os.environ["TRANSFORMERS_CACHE"] = "/tmp/huggingface"
+            os.environ["HF_HOME"] = "/tmp/huggingface"
+
             from sentence_transformers import SentenceTransformer
-            _hf_model = SentenceTransformer('all-MiniLM-L6-v2')
-            print("[_load_hf_model] model loaded successfully")
-        except Exception:
-            print("[_load_hf_model] failed to load SentenceTransformer")
+
+            _hf_model = SentenceTransformer(
+                "all-MiniLM-L6-v2",
+                cache_folder="/tmp/huggingface"
+            )
+
+            print("[HF] Embedding model loaded successfully")
+
+        except Exception as e:
+            print(f"[HF] Failed to load embedding model: {e}")
             traceback.print_exc()
             _hf_model = None
-    return _hf_model
 
+    return _hf_model
 
 def _compute_embedding(text: str):
     """Returns embedding list[float] (384 dims) or None."""
