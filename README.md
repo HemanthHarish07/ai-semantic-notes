@@ -8,7 +8,7 @@ NeuroNote AI is a premium, full-stack, AI-powered semantic knowledge base and no
 
 * **Advanced Semantic Search**: Retrieve knowledge entries based on conceptual meaning rather than exact word matches. Supports native PostgreSQL `pgvector` when deployed in production, and automatically falls back to an optimized **pure-Python Cosine Similarity** search utilizing serialized JSON float arrays when running on SQLite.
 * **AI-Powered Summarization & Auto-Tagging**: Generates structured, concise summaries and semantic tags for every note using Google's `gemini-1.5-flash-latest` model with fallback extraction logic.
-* **Bulletproof Authentication & Session Management**: JWT-based authentication with PBKDF2 password hashing with PBKDF2 password hashing. Features automated **Axios response interceptors** on the frontend that catch `401 Unauthorized` states (e.g. from deleted/expired database sessions) to automatically clean up `localStorage` and redirect to login.
+* **Bulletproof Authentication & Session Management**: JWT-based authentication with PBKDF2 password hashing. Features automated **Axios response interceptors** on the frontend that catch `401 Unauthorized` states (e.g. from deleted/expired database sessions) to automatically clean up `localStorage` and redirect to login.
 * **Rich Glassmorphism UI**: Beautiful, interactive, modern dark-mode user experience utilizing TailwindCSS.
 
 ---
