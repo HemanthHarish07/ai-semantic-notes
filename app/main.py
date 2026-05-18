@@ -96,22 +96,46 @@ def create_item_for_user(
 #     return items
 
 @app.post("/token", response_model=schemas.Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # user = authenticate_user(fake_users_db, form_data.username, form_data.password)
-    # print(form_data.username)
-    db_user = crud.get_user_by_email(db, email=form_data.username)
-    if not (security.verify_hash(form_data.password,db_user.salt).decode('utf-8') == db_user.hashed_password):
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    db_user = crud.get_user_by_email(
+        db,
+        email=form_data.username
+    )
+
+    # USER NOT FOUND
+    if not db_user:
         raise HTTPException(
             status_code=401,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        # return {"message":"ERROR"}
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = security.create_access_token(
-        data={"sub": db_user.email}, expires_delta=access_token_expires
+    # INVALID PASSWORD
+    if not (
+        security.verify_hash(
+            form_data.password,
+            db_user.salt
+        ).decode("utf-8")
+        == db_user.hashed_password
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token_expires = timedelta(
+        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
+
+    access_token = security.create_access_token(
+        data={"sub": db_user.email},
+        expires_delta=access_token_expires
+    )
+
     return {"access_token": access_token}
 
 @app.get("/user",response_model=schemas.User)
