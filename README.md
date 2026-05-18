@@ -6,8 +6,8 @@ NeuroNote AI is an AI-powered semantic knowledge base and note retrieval platfor
 
 ## 🚀 Key Features
 
-* **Advanced Semantic Search**: Retrieve knowledge entries based on conceptual meaning rather than exact word matches. Supports native PostgreSQL `pgvector` when deployed in production, and automatically falls back to an optimized **pure-Python Cosine Similarity** search utilizing serialized JSON float arrays when running on SQLite.
-* **AI-Powered Summarization & Auto-Tagging**: Generates structured, concise summaries and semantic tags for every note using Google's `gemini-1.5-flash-latest` model with fallback extraction logic.
+* **Advanced Semantic Search**: Retrieve knowledge entries based on conceptual meaning rather than exact word matches. Supports production-ready **Neon PostgreSQL + pgvector** integration for high-performance vector similarity searches, and automatically falls back to an optimized **pure-Python Cosine Similarity** search utilizing serialized JSON float arrays when running on SQLite.
+* **AI-Powered Summarization & Auto-Tagging**: Generates structured, concise summaries and semantic tags for every note using Google's `gemini-1.5-flash` model with fallback extraction logic.
 * **Bulletproof Authentication & Session Management**: JWT-based authentication with PBKDF2 password hashing. Features automated **Axios response interceptors** on the frontend that catch `401 Unauthorized` states (e.g. from deleted/expired database sessions) to automatically clean up `localStorage` and redirect to login.
 * **Rich Glassmorphism UI**: Beautiful, interactive, modern dark-mode user experience utilizing TailwindCSS.
 
@@ -17,9 +17,9 @@ NeuroNote AI is an AI-powered semantic knowledge base and note retrieval platfor
 
 ### Backend (FastAPI)
 * **Web Framework**: FastAPI for high-performance, async API routing.
-* **Database & ORM**: SQLAlchemy with PostgreSQL / SQLite capability.
+* **Database & ORM**: SQLAlchemy with Neon PostgreSQL / SQLite capability.
 * **Embeddings Pipeline**: HuggingFace `sentence-transformers/all-MiniLM-L6-v2` generating 384-dimensional vector representations.
-* **AI Model Client**: Google Generative AI (`google-generativeai`) using `gemini-1.5-flash-latest` (with robust standard fallback tagging if API limits are hit).
+* **AI Model Client**: Google Generative AI (`google-generativeai`) using `gemini-1.5-flash` (with robust standard fallback tagging if API limits are hit).
 
 ### Frontend (React + Vite + TypeScript)
 * **Dev Server**: Vite for ultra-fast hot reloading.

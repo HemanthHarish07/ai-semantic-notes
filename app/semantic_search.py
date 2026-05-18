@@ -7,6 +7,7 @@ from .config import EMBEDDING_PROVIDER
 from . import models, schemas, crud
 from .ai import _compute_embedding
 from .pgvector_utils import pgvector_capabilities
+from sqlalchemy import text
 
 
 def _cosine_similarity(a: List[float], b: List[float]) -> float:
@@ -82,6 +83,7 @@ def semantic_search(db, user_id: int, query: str, top_k: int) -> schemas.Semanti
         print(f"[semantic_search] Query embedding generation FAILED")
         return schemas.SemanticSearchResponse(results=[], pgvector_used=False)
     
+    print(f"[Embedding Generation] SUCCESS: Computed dense embedding with dimension={len(query_vec)}")
     print(f"[semantic_search] Query embedding generated: length={len(query_vec)}")
 
     caps = pgvector_capabilities(DATABASE_URL_EFFECTIVE)
@@ -114,7 +116,7 @@ def semantic_search(db, user_id: int, query: str, top_k: int) -> schemas.Semanti
             )
 
             result = db.execute(
-                sql,
+                text(sql),
                 {
                     "qvec": vec_literal,
                     "user_id": user_id,
@@ -126,12 +128,14 @@ def semantic_search(db, user_id: int, query: str, top_k: int) -> schemas.Semanti
             for row in result.fetchall():
                 out.append(
                     schemas.SemanticSearchResult(
-                        note_id=row["id"],
-                        title=row["title"],
-                        description=row["description"],
-                        similarity=float(row["similarity"]),
+                        note_id=row.id,
+                        title=row.title,
+                        description=row.description,
+                        similarity=float(row.similarity),
                     )
                 )
+            print(f"[Semantic Search] Path used: pgvector")
+            print(f"[Semantic Search] SUCCESS: Search returned {len(out)} results")
             print(f"[semantic_search] pgvector query returned {len(out)} results")
             return schemas.SemanticSearchResponse(results=out, pgvector_used=True)
         except Exception as e:
@@ -154,6 +158,8 @@ def semantic_search(db, user_id: int, query: str, top_k: int) -> schemas.Semanti
             )
         )
     
+    print(f"[Semantic Search] Path used: python fallback")
+    print(f"[Semantic Search] SUCCESS: Search returned {len(out)} results")
     print(f"[semantic_search] Returning {len(out)} final results")
     return schemas.SemanticSearchResponse(results=out, pgvector_used=False)
 

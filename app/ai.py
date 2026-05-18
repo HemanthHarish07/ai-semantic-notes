@@ -81,7 +81,7 @@ def call_gemini_summarize(note: dict):
         import google.generativeai as genai
 
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-1.5-flash-latest")
+        model = genai.GenerativeModel("gemini-1.5-flash")
         resp = model.generate_content(prompt)
         text = getattr(resp, "text", None) or str(resp)
 
@@ -132,6 +132,7 @@ def generate_and_store_ai(note: dict, note_id: str):
             if embedding_vector is not None:
                 import json as json_lib
                 embedding_json = json_lib.dumps(embedding_vector)
+                print(f"[Embedding Generation] SUCCESS: Computed dense embedding with dimension={len(embedding_vector)}")
                 print(f"[generate_and_store_ai] Embedding computed: length={len(embedding_vector)}")
             else:
                 embedding_json = None
