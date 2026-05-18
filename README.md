@@ -1,4 +1,4 @@
-# NeuroNote AI — Semantic Knowledge Base & Knowledge Graph App
+# NeuroNote AI — Semantic Knowledge Base
 
 NeuroNote AI is a premium, full-stack, AI-powered semantic knowledge base and note-taking application. The platform leverages modern generative AI for summarization, computes dense vector embeddings, and delivers lightning-fast semantic search queries.
 
@@ -8,7 +8,7 @@ NeuroNote AI is a premium, full-stack, AI-powered semantic knowledge base and no
 
 * **Advanced Semantic Search**: Retrieve knowledge entries based on conceptual meaning rather than exact word matches. Supports native PostgreSQL `pgvector` when deployed in production, and automatically falls back to an optimized **pure-Python Cosine Similarity** search utilizing serialized JSON float arrays when running on SQLite.
 * **AI-Powered Summarization & Auto-Tagging**: Generates structured, concise summaries and semantic tags for every note using Google's `gemini-1.5-flash-latest` model with fallback extraction logic.
-* **Bulletproof Authentication & Session Management**: Complete custom JWT-based authentication flow with PBKDF2 password hashing. Features automated **Axios response interceptors** on the frontend that catch `401 Unauthorized` states (e.g. from deleted/expired database sessions) to automatically clean up `localStorage` and redirect to login.
+* **Bulletproof Authentication & Session Management**: JWT-based authentication with PBKDF2 password hashing with PBKDF2 password hashing. Features automated **Axios response interceptors** on the frontend that catch `401 Unauthorized` states (e.g. from deleted/expired database sessions) to automatically clean up `localStorage` and redirect to login.
 * **Rich Glassmorphism UI**: Beautiful, interactive, modern dark-mode user experience utilizing TailwindCSS.
 
 ---
@@ -47,8 +47,6 @@ NeuroNote AI is a premium, full-stack, AI-powered semantic knowledge base and no
 │   │   └── ui/            # UI components (NoteCard)
 │   ├── package.json
 │   └── vite.config.ts
-├── dev.db                 # SQLite development database
-├── dev_backup_working.db  # Verified stable database backup
 ├── docker-compose.yaml    # Production orchestration definition
 └── requirements.txt       # Frozen, verified Python dependencies
 ```
