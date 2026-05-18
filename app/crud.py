@@ -4,10 +4,12 @@ import hashlib
 import base64
 from datetime import datetime, timedelta
 from typing import Optional, OrderedDict
-from jwt import *
+from .jwt import *
 import json
+import uuid
 
-import models, schemas
+
+from . import models, schemas
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
@@ -50,24 +52,65 @@ def create_user_item(db: Session, item: schemas.ItemCreate, user_id: int):
     db.commit()
     db.refresh(db_item)
     return db_item
-def create_user_note(db:Session, note:str,user_id:int):
+def create_user_note(db: Session, note: str, user_id: int):
+    """Create a note for a user.
+
+    Additive fix: if incoming payload lacks `id`, generate a UUID string.
+    """
     print(note)
-    # note = json.loads(note)
-    db_item = models.Note(**note, owner_id=user_id)
+
+    if not isinstance(note, dict):
+        raise ValueError("note payload must be an object")
+
+    note_data = dict(note)
+    if not note_data.get("id"):
+        note_data["id"] = uuid.uuid4().hex
+
+    db_item = models.Note(**note_data, owner_id=user_id)
     db.add(db_item)
+    # Flush to catch issues (e.g., PK problems) before commit.
+    db.flush()
     db.commit()
     db.refresh(db_item)
-    return note
+    return db_item
+
 def update_user_note(db:Session, note:str,user_id:int):
-    # print(note)
-    # note = json.loads(note)
+    # Runtime guard: update requires an id. The create-note flow intentionally
+    # sends only {"title", "description"} and must not crash here.
+    if not isinstance(note, dict):
+        raise ValueError("note payload must be an object")
+
+    note_id = note.get("id")
+    if not note_id:
+        # Controlled behavior instead of KeyError
+        # Caller may treat this as a failed update.
+        return None
+
     db_item = models.Note(**note, owner_id=user_id)
-    updateObject = db.query(models.Note).filter_by(owner_id=user_id,id=note["id"]).first()
+    updateObject = (
+        db.query(models.Note)
+        .filter_by(owner_id=user_id, id=note_id)
+        .first()
+    )
+    if not updateObject:
+        return None
+
     updateObject.description = db_item.description
     updateObject.title = db_item.title
     db.commit()
     db.refresh(updateObject)
     return note
+
+
+def create_note_ai(db: Session, note_id: str, summary: str, tags: str):
+    db_item = models.NoteAI(note_id=note_id, summary=summary, tags=tags)
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+def get_note_ai(db: Session, note_id: str):
+    return db.query(models.NoteAI).filter(models.NoteAI.note_id == note_id).first()
 
 def get_user_notes(db: Session, user: schemas.User,skip: int = 0, limit: int = 100):
     items = db.query(models.Note).filter_by(owner_id=user.id).offset(skip).limit(limit).all()

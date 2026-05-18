@@ -1,21 +1,30 @@
-version: '3'
+version: '3.8'
 services:
   app:
-    container_name: docker-fastapi
-    restart: always
     build: .
+    restart: unless-stopped
     ports:
       - '8000:8000'
-    links:
+    depends_on:
       - postgres
-  postgres:
-    container_name: postgres
     environment:
-      - POSTGRES_PASSWORD=yz9oTn1AvH0vGer#pJip&vF
-    image: postgres:alpine
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/appdb
+      - SECRET_KEY=change_me_in_production
+    # optional: mount code for live edit
+    volumes:
+      - ./:/code
+
+  postgres:
+    image: ankane/pgvector:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
     ports:
-      - "5432:5432"
-networks:
-  default:
-    external: true
-    name: proxy_gateway_default
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

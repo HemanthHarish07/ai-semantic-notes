@@ -1,12 +1,13 @@
+import os
 import hashlib
 import base64
 from datetime import datetime, timedelta
 from typing import Optional
-from jwt import *
+from .jwt import *
 import json
-import crud
+from . import crud
+from .config import SECRET_KEY
 
-SECRET_KEY = ""
 ALGORITHM = "HS256"
 
 

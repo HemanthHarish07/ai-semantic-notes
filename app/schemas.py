@@ -1,6 +1,11 @@
 from typing import List, Optional
 from pydantic import BaseModel
 
+# Ensure consistent tags typing across pydantic v1/v2
+# (some dev runs were hitting tags=None situations)
+
+
+
 class ItemBase(BaseModel):
     title: str
     description: Optional[str] = None
@@ -36,5 +41,30 @@ class Note(BaseModel):
     description:str
 
 class NoteRequest(BaseModel):
-    title:str
-    description:str
+    title: str
+    description: str
+
+
+class NoteAIResponse(BaseModel):
+    note_id: str
+    summary: str | None = None
+    tags: list[str] = []
+    embedding_present: bool = False
+
+
+class SemanticSearchRequest(BaseModel):
+    query: str
+    top_k: int = 5
+
+
+class SemanticSearchResult(BaseModel):
+    note_id: str
+    title: str
+    description: str
+    similarity: float
+
+
+class SemanticSearchResponse(BaseModel):
+    results: list[SemanticSearchResult]
+    pgvector_used: bool = False
+

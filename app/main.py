@@ -1,27 +1,46 @@
 from typing import List
-from fastapi import Depends, FastAPI, HTTPException,Request
+from fastapi import Depends, FastAPI, HTTPException,Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-import crud, models, schemas,security
-from database import SessionLocal, engine
+from . import crud, models, schemas, security
+from .database import SessionLocal, engine
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
-from jwt import decodeJWT
-from routers import files
+from .jwt import decodeJWT
+from .routers import files
+from .ai import generate_and_store_ai
+from .routes_ai import router as ai_router
 import re
+from .semantic_search import semantic_search
+from . import schemas
+from pydantic import BaseModel
+
+
 
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
+
 models.Base.metadata.create_all(bind=engine)
+from .database import ensure_sqlite_schema, DATABASE_URL_EFFECTIVE
+ensure_sqlite_schema()
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 app = FastAPI()
 
 app.include_router(files.router)
+app.include_router(ai_router)
 
-origins = "*"
+
+# Local dev CORS (allow localhost frontend only)
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,6 +51,8 @@ app.add_middleware(
 )
 
 
+
+
 # Dependency
 def get_db():
     db = SessionLocal()
@@ -40,17 +61,6 @@ def get_db():
     finally:
         db.close()
 
-
-@app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    print(user.email)
-    regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    db_user = crud.get_user_by_email(db, email=user.email)
-    if (re.fullmatch(regex, user.email)==None):
-        raise HTTPException(status_code=409, detail="Invalid Email Address")
-    if db_user:
-        raise HTTPException(status_code=409, detail="Email already registered")
-    return crud.create_user(db=db, user=user)
 
 @app.get("/users/", response_model=List[schemas.User])
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -63,6 +73,13 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
     db_user = crud.get_user(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    return db_user
+
+
+@app.post("/users/", response_model=schemas.User)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    print(f"[POST /users/] Creating user with email={user.email}")
+    db_user = crud.create_user(db, user=user)
     return db_user
 
 
@@ -98,47 +115,71 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token}
 
 @app.get("/user",response_model=schemas.User)
-async def get_current_user(token: schemas.Token,db: Session = Depends(get_db)):    
+async def get_user_profile(token: schemas.Token,db: Session = Depends(get_db)):    
     email=security.get_current_user_email(token.access_token)
     db_user = crud.get_user_by_email(db, email=email)
-    
+    if not db_user:
+        raise HTTPException(status_code=401, detail="User not found or session expired")
     return db_user
 
 @app.get("/user/notes")
-async def get_current_user(access_token: str,db: Session = Depends(get_db)):
-    print(access_token)
+async def get_notes(access_token: str,db: Session = Depends(get_db)):
     email=security.get_current_user_email(access_token)
     db_user = crud.get_user_by_email(db, email=email)
+    if not db_user:
+        raise HTTPException(status_code=401, detail="User not found or session expired")
     return crud.get_user_notes(db,db_user)
 
 @app.post("/user/notes")
-async def post_user_items(request:Request,access_token:str,db: Session = Depends(get_db)):
+async def post_user_items(request:Request,access_token:str,db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
     # print(request.json())
     json = await request.json()
-    print(json)
+    print(f"[POST /user/notes] START: title={repr(json.get('note', {}).get('title', '')[:50])}")
     # access_token = json["token"]["access_token"]
     email=security.get_current_user_email(access_token)
     db_user = crud.get_user_by_email(db, email=email)
+    if not db_user:
+        raise HTTPException(status_code=401, detail="User not found or session expired")
     note = json["note"]
     
     try:
-        crud.create_user_note(db,note,db_user.id)
+        print(f"[POST /user/notes] Creating note for user_id={db_user.id}")
+        new_note = crud.create_user_note(db, note, db_user.id)
+        print(f"[POST /user/notes] Note created: note_id={new_note.id}")
+        
+        # schedule AI summarization/tagging (SYNCHRONOUS for debugging)
+        print(f"[POST /user/notes] Running AI generation synchronously")
+        generate_and_store_ai(note, new_note.id)
+        print(f"[POST /user/notes] AI generation complete")
+        
     except IntegrityError:
+        # Fallback: attempt update if the note id conflicts (idempotency)
+        print(f"[POST /user/notes] IntegrityError - rolling back and attempting update")
         db.rollback()
-        crud.update_user_note(db,note,db_user.id)
-    
-    # email=security.get_current_user_email(access_token)
-    # db_user = crud.get_user_by_email(db, email=email)
-    return {"message":json}
+        crud.update_user_note(db, note, db_user.id)
+        new_note = db.query(models.Note).filter(models.Note.owner_id == db_user.id).order_by(models.Note.id.desc()).first()
+
+    created = None
+    if getattr(new_note, "id", None):
+        created = {
+            "id": new_note.id,
+            "title": new_note.title,
+            "description": new_note.description,
+        }
+
+    # Backward-compatible response: keep original payload shape, add created_note.
+    print(f"[POST /user/notes] SUCCESS: created_note_id={created.get('id') if created else 'None'}")
+    return {"message": json, "created_note": created}
+
 
 @app.put("/user/notes")
 async def update_user_note(request:Request,access_token:str,db: Session = Depends(get_db)):
-    print(request.json())
     json = await request.json()
-    print(json)
     # access_token = json["token"]["access_token"]
     email=security.get_current_user_email(access_token)
     db_user = crud.get_user_by_email(db, email=email)
+    if not db_user:
+        raise HTTPException(status_code=401, detail="User not found or session expired")
     note = json["note"]
     crud.update_user_note(db,note,db_user.id)
     return {"message":json}
@@ -149,8 +190,9 @@ async def post_user_items(request:Request,access_token:str,db: Session = Depends
     # access_token = json["token"]["access_token"]
     email=security.get_current_user_email(access_token)
     db_user = crud.get_user_by_email(db, email=email)
+    if not db_user:
+        raise HTTPException(status_code=401, detail="User not found or session expired")
     note = json["note"]
-    print(note)
     crud.delete_user_note(db,note,db_user.id)
     # email=security.get_current_user_email(access_token)
     # db_user = crud.get_user_by_email(db, email=email)
@@ -172,9 +214,31 @@ async def post_user_items(request:Request,access_token:str,db: Session = Depends
 #     else:
 #         raise HTTPException(status_code=400, detail="Invalid Login")
 
-@app.post("/test")
-async def playground(request:Request):
-    print(request)
-    json = await request.json()
-    print(json)
-    return {"message":json}
+@app.post("/user/notes/semantic-search", response_model=schemas.SemanticSearchResponse)
+async def semantic_search_endpoint(request: Request, access_token: str, db: Session = Depends(get_db)):
+    body = await request.json()
+
+    # Basic shape validation (keeps changes additive + avoids broad refactors)
+    query = body.get("query")
+    top_k = body.get("top_k", 5)
+    try:
+        top_k = int(top_k)
+    except Exception:
+        top_k = 5
+    if not isinstance(query, str) or not query.strip():
+        raise HTTPException(status_code=400, detail="query must be a non-empty string")
+    top_k = max(1, min(top_k, 20))
+
+    email = security.get_current_user_email(access_token)
+    user = crud.get_user_by_email(db, email=email)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found or session expired")
+
+    # Embed + search (pgvector when available; otherwise JSON+cosine fallback)
+    resp = semantic_search(db, user.id, query, top_k)
+
+    return resp
+
+
+
+
