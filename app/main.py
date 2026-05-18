@@ -36,7 +36,7 @@ app.include_router(ai_router)
 
 # Local dev CORS (allow localhost frontend only)
 origins = [
-    "https://ai-semantic-notes.vercel.app",
+    "https://ai-semantic-notes-jnnk.vercel.app",
 ]
 
 app.add_middleware(
